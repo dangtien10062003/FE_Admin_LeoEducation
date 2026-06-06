@@ -12,7 +12,7 @@ import { TestimonialsPage } from './pages/TestimonialsPage';
 import { BlogsPage } from './pages/BlogsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
-const LOGIN_URL = import.meta.env.VITE_LOGIN_URL || 'http://localhost:3001/login';
+const LOGIN_URL = import.meta.env.VITE_LOGIN_URL || 'https://dangtien10062003.github.io/FE_Login_LeoEducation/login';
 
 const ExternalRedirect = ({ to }) => {
   React.useEffect(() => {
@@ -23,8 +23,10 @@ const ExternalRedirect = ({ to }) => {
 };
 
 export default function App() {
+  const basename = import.meta.env.BASE_URL.replace(/\/$/, '');
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<ExternalRedirect to={LOGIN_URL} />} />
