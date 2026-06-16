@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Loader2, X } from 'lucide-react';
 import { getCourses, createCourse, updateCourse, deleteCourse, getSubjects } from '../services/api';
-import { formatDisplayCode } from '../utils/displayCode';
+import { Pagination } from '../components/Pagination';
+import { MobileActions, MobileCardList, MobileField } from '../components/MobileCardList';
 
 export const CoursesPage = () => {
   const [courses, setCourses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [toast, setToast] = useState(null);
@@ -27,15 +31,16 @@ export const CoursesPage = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getCourses({ keyword, limit: 100 });
+      const res = await getCourses({ searchTerm: keyword, pageIndex, pageSize });
       setCourses(res.data || []);
+      setMeta({ total: res.total || 0, totalPages: res.totalPages || 1 });
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [keyword]);
+  useEffect(() => { load(); }, [keyword, pageIndex, pageSize]);
 
   useEffect(() => {
     getSubjects()
@@ -91,7 +96,7 @@ export const CoursesPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Xóa khóa học này?')) return;
+    if (!confirm('Xóa khóa học này')) return;
     try {
       await deleteCourse(id);
       showToast('Xóa khóa học thành công');
@@ -99,6 +104,15 @@ export const CoursesPage = () => {
     } catch (err) {
       showToast(err.message, 'error');
     }
+  };
+
+  const getCourseSubjectName = (course) => {
+    return (
+      course.subject?.subjectName ||
+      course.subjectName ||
+      subjects.find(subject => subject.subjectId === course.subjectId)?.subjectName ||
+      'Chưa chọn'
+    );
   };
 
   return (
@@ -114,7 +128,7 @@ export const CoursesPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Quản lý khóa học</h1>
-          <p className="text-slate-500 text-sm">{courses.length} khóa học</p>
+          <p className="text-slate-500 text-sm">{meta.total} khóa học</p>
         </div>
         <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
           <Plus className="w-4 h-4" /> Thêm khóa học
@@ -125,7 +139,7 @@ export const CoursesPage = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           value={keyword}
-          onChange={e => setKeyword(e.target.value)}
+          onChange={e => { setKeyword(e.target.value); setPageIndex(1); }}
           placeholder="Tìm kiếm..."
           className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
@@ -134,24 +148,48 @@ export const CoursesPage = () => {
       {loading ? (
         <div className="flex items-center justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-teal-600" /></div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-          <table className="w-full">
-            <thead>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <MobileCardList
+            items={courses}
+            emptyMessage="Không có khóa học"
+            renderItem={(course, index) => (
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-medium text-slate-400">STT {(pageIndex - 1) * pageSize + index + 1}</div>
+                    <h3 className="mt-1 text-sm font-medium text-slate-800">{course.courseName}</h3>
+                  </div>
+                  <div className="text-sm font-medium text-teal-700">{course.price ? `${course.price.toLocaleString()}đ` : 'Liên hệ'}</div>
+                </div>
+                <div className="mt-3">
+                  <MobileField label="Môn học">{getCourseSubjectName(course)}</MobileField>
+                  <MobileField label="Ngày tạo">{new Date(course.createdAt).toLocaleDateString('vi-VN')}</MobileField>
+                </div>
+                <MobileActions>
+                  <button onClick={() => openEdit(course)} className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600"><Edit2 className="w-3.5 h-3.5" /> Sửa</button>
+                  <button onClick={() => handleDelete(course.courseId)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"><Trash2 className="w-3.5 h-3.5" /> Xóa</button>
+                </MobileActions>
+              </div>
+            )}
+          />
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full">
+              <thead>
               <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-100">
-                <th className="px-5 py-3">Mã khóa học</th>
+                <th className="px-5 py-3">STT</th>
                 <th className="px-5 py-3">Tên khóa học</th>
                 <th className="px-5 py-3">Môn học</th>
                 <th className="px-5 py-3">Giá</th>
                 <th className="px-5 py-3">Ngày tạo</th>
                 <th className="px-5 py-3 text-right">Thao tác</th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {courses.map(course => (
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+              {courses.map((course, index) => (
                 <tr key={course.courseId} className="text-sm hover:bg-slate-50">
-                  <td className="px-5 py-3 text-slate-500 font-mono">{formatDisplayCode('KH', course.courseId)}</td>
+                  <td className="px-5 py-3 text-slate-500">{(pageIndex - 1) * pageSize + index + 1}</td>
                   <td className="px-5 py-3 font-medium text-slate-800">{course.courseName}</td>
-                  <td className="px-5 py-3 text-slate-600">{course.subject?.subjectName || 'Chưa chọn'}</td>
+                  <td className="px-5 py-3 text-slate-600">{getCourseSubjectName(course)}</td>
                   <td className="px-5 py-3 text-slate-600">{course.price ? `${course.price.toLocaleString()}đ` : 'Liên hệ'}</td>
                   <td className="px-5 py-3 text-slate-500">{new Date(course.createdAt).toLocaleDateString('vi-VN')}</td>
                   <td className="px-5 py-3 text-right">
@@ -163,8 +201,17 @@ export const CoursesPage = () => {
               {courses.length === 0 && (
                 <tr><td colSpan="6" className="px-5 py-8 text-center text-slate-400">Không có khóa học</td></tr>
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.totalPages}
+            onPageChange={setPageIndex}
+            onPageSizeChange={(size) => { setPageSize(size); setPageIndex(1); }}
+          />
         </div>
       )}
 
@@ -210,7 +257,7 @@ export const CoursesPage = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Giá</label>
                   <input
@@ -221,7 +268,7 @@ export const CoursesPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Mã giáo viên nội bộ</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Giáo viên phụ trách</label>
                   <input
                     type="number"
                     value={form.instructorId}
@@ -244,3 +291,5 @@ export const CoursesPage = () => {
     </div>
   );
 };
+
+

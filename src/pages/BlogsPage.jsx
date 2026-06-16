@@ -1,20 +1,30 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { createBlog, deleteBlog, getBlogs, updateBlog } from '../services/api';
-import { Loader2, Plus, X, FileText, Edit2, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, X, FileText, Edit2, Trash2 } from 'lucide-react';
+import { Pagination } from '../components/Pagination';
+import { MobileActions, MobileCardList, MobileField } from '../components/MobileCardList';
 
 export const BlogsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [keyword, setKeyword] = useState('');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [form, setForm] = useState({ title: '', summary: '', content: '', imageUrl: '', author: '' });
 
   const load = async () => {
     setLoading(true);
-    try { const res = await getBlogs(); setItems(res.data || []); } catch (e) { console.error(e); }
+    try {
+      const res = await getBlogs({ searchTerm: keyword, pageIndex, pageSize });
+      setItems(res.data || []);
+      setMeta({ total: res.total || 0, totalPages: res.totalPages || 1 });
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [keyword, pageIndex, pageSize]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +39,7 @@ export const BlogsPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Xóa bài viết này?')) return;
+    if (!confirm('Xóa bài viết này')) return;
     try {
       await deleteBlog(id);
       load();
@@ -41,34 +51,98 @@ export const BlogsPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">Quản lý Blog</h1><p className="text-slate-500 text-sm">{items.length} bài viết</p></div>
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-slate-800">Quản lý Blog</h1><p className="text-slate-500 text-sm">{meta.total} bài viết</p></div>
         <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
           <Plus className="w-4 h-4" /> Viết bài
         </button>
       </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          value={keyword}
+          onChange={e => { setKeyword(e.target.value); setPageIndex(1); }}
+          placeholder="Tìm theo tiêu đề, tóm tắt, tác giả..."
+          className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+
       {loading ? <div className="flex justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-teal-600" /></div> : (
-        <div className="space-y-3">
-          {items.map(b => (
-            <div key={b.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex gap-4">
-              {b.imageUrl ? <img src={b.imageUrl} alt={b.title} className="w-24 h-24 rounded-lg object-cover flex-shrink-0" /> : (
-                <div className="w-24 h-24 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0"><FileText className="w-8 h-8 text-slate-300" /></div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-800">{b.title}</h3>
-                {b.summary && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{b.summary}</p>}
-                <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-                  {b.author && <span>✍️ {b.author}</span>}
-                  <span>📅 {new Date(b.createdAt).toLocaleDateString('vi-VN')}</span>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <MobileCardList
+            items={items}
+            emptyMessage="Chưa có bài viết"
+            renderItem={(b, index) => (
+              <div>
+                <div className="flex items-start gap-3">
+                  {b.imageUrl ? <img src={b.imageUrl} alt={b.title} className="h-14 w-14 flex-shrink-0 rounded-lg object-cover" /> : (
+                    <div className="h-14 w-14 rounded-lg bg-slate-100 flex flex-shrink-0 items-center justify-center"><FileText className="w-5 h-5 text-slate-300" /></div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-slate-400">STT {(pageIndex - 1) * pageSize + index + 1}</div>
+                    <h3 className="mt-1 line-clamp-2 text-sm font-medium text-slate-800">{b.title}</h3>
+                  </div>
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <button onClick={() => openEdit(b)} className="text-xs px-3 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-1"><Edit2 className="w-3 h-3" /> Sửa</button>
-                  <button onClick={() => handleDelete(b.id)} className="text-xs px-3 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-3 h-3" /> Xóa</button>
+                <div className="mt-3">
+                  <MobileField label="Tóm tắt"><span className="line-clamp-2">{b.summary || '—'}</span></MobileField>
+                  <MobileField label="Tác giả">{b.author || '—'}</MobileField>
+                  <MobileField label="Ngày">{new Date(b.createdAt).toLocaleDateString('vi-VN')}</MobileField>
                 </div>
+                <MobileActions>
+                  <button onClick={() => openEdit(b)} className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600"><Edit2 className="w-3.5 h-3.5" /> Sửa</button>
+                  <button onClick={() => handleDelete(b.id)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"><Trash2 className="w-3.5 h-3.5" /> Xóa</button>
+                </MobileActions>
               </div>
-            </div>
-          ))}
-          {items.length === 0 && <div className="bg-white rounded-xl p-8 text-center text-slate-400 border border-slate-200 border-dashed">Chưa có bài viết</div>}
+            )}
+          />
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full">
+              <thead>
+              <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-100 bg-slate-50">
+                <th className="px-5 py-3">STT</th>
+                <th className="px-5 py-3">Bài viết</th>
+                <th className="px-5 py-3">Tóm tắt</th>
+                <th className="px-5 py-3">Tác giả</th>
+                <th className="px-5 py-3">Ngày</th>
+                <th className="px-5 py-3 text-right">Thao tác</th>
+              </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+              {items.map((b, index) => (
+                <tr key={b.id} className="text-sm hover:bg-slate-50">
+                  <td className="px-5 py-3 text-slate-500">{(pageIndex - 1) * pageSize + index + 1}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      {b.imageUrl ? <img src={b.imageUrl} alt={b.title} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" /> : (
+                        <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-slate-300" /></div>
+                      )}
+                      <span className="font-semibold text-slate-800">{b.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-slate-600 max-w-xs truncate">{b.summary || '—'}</td>
+                  <td className="px-5 py-3 text-slate-600">{b.author || '—'}</td>
+                  <td className="px-5 py-3 text-slate-500">{new Date(b.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td className="px-5 py-3 text-right">
+                    <button onClick={() => openEdit(b)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(b.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr><td colSpan="6" className="px-5 py-12 text-center text-slate-400">Chưa có bài viết</td></tr>
+              )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.totalPages}
+            onPageChange={setPageIndex}
+            onPageSizeChange={(size) => { setPageSize(size); setPageIndex(1); }}
+          />
         </div>
       )}
       {showModal && (
@@ -85,7 +159,7 @@ export const BlogsPage = () => {
                 <textarea value={form.summary} onChange={e => setForm({...form, summary: e.target.value})} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Nội dung</label>
                 <textarea value={form.content} onChange={e => setForm({...form, content: e.target.value})} rows={8} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Ảnh cover URL</label>
                   <input value={form.imageUrl} onChange={e => setForm({...form, imageUrl: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Tác giả</label>
@@ -102,3 +176,5 @@ export const BlogsPage = () => {
     </div>
   );
 };
+
+

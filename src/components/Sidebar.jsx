@@ -10,12 +10,14 @@ import {
   Star,
   FileText,
   School,
+  Users,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/subjects', label: 'Môn học', icon: BookMarked },
   { path: '/courses', label: 'Khóa học', icon: BookOpen },
+  { path: '/classes', label: 'Lớp học', icon: Users },
   { path: '/registrations', label: 'Đăng ký', icon: ClipboardList },
   { path: '/contacts', label: 'Liên hệ', icon: MessageSquare },
   { path: '/instructors', label: 'Giáo viên', icon: GraduationCap },

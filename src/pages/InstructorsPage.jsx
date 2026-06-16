@@ -1,25 +1,35 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   createInstructor,
   deleteInstructor,
   getInstructors,
   updateInstructor,
 } from '../services/api';
-import { Loader2, Plus, X, Edit2, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, X, Edit2, Trash2 } from 'lucide-react';
+import { Pagination } from '../components/Pagination';
+import { MobileActions, MobileCardList, MobileField } from '../components/MobileCardList';
 
 export const InstructorsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [keyword, setKeyword] = useState('');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [form, setForm] = useState({ fullName: '', role: '', bio: '', experience: '', avatarUrl: '', rating: 5 });
 
   const load = async () => {
     setLoading(true);
-    try { const res = await getInstructors(); setItems(res.data || []); } catch (e) { console.error(e); }
+    try {
+      const res = await getInstructors({ searchTerm: keyword, pageIndex, pageSize });
+      setItems(res.data || []);
+      setMeta({ total: res.total || 0, totalPages: res.totalPages || 1 });
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [keyword, pageIndex, pageSize]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +47,7 @@ export const InstructorsPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Xóa giáo viên này?')) return;
+    if (!confirm('Xóa giáo viên này')) return;
     try {
       await deleteInstructor(id);
       load();
@@ -49,36 +59,105 @@ export const InstructorsPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">Quản lý Giáo viên</h1><p className="text-slate-500 text-sm">{items.length} giáo viên</p></div>
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-slate-800">Quản lý Giáo viên</h1><p className="text-slate-500 text-sm">{meta.total} giáo viên</p></div>
         <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
           <Plus className="w-4 h-4" /> Thêm giáo viên
         </button>
       </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          value={keyword}
+          onChange={e => { setKeyword(e.target.value); setPageIndex(1); }}
+          placeholder="Tìm theo tên, chuyên môn, kinh nghiệm..."
+          className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+
       {loading ? <div className="flex justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-teal-600" /></div> : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map(i => (
-            <div key={i.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                {i.avatarUrl ? <img src={i.avatarUrl} alt={i.fullName} className="w-12 h-12 rounded-full object-cover" /> : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-lg font-bold">
-                    {i.fullName.charAt(0)}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <MobileCardList
+            items={items}
+            emptyMessage="Chưa có giáo viên"
+            renderItem={(i, index) => (
+              <div>
+                <div className="flex items-start gap-3">
+                  {i.avatarUrl ? <img src={i.avatarUrl} alt={i.fullName} className="w-11 h-11 rounded-full object-cover" /> : (
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex flex-shrink-0 items-center justify-center text-sm font-bold text-white">
+                      {i.fullName.charAt(0)}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-slate-400">STT {(pageIndex - 1) * pageSize + index + 1}</div>
+                    <h3 className="mt-1 truncate text-sm font-medium text-slate-800">{i.fullName}</h3>
+                    {i.bio && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{i.bio}</p>}
                   </div>
-                )}
-                <div className="flex-1"><h3 className="font-semibold text-slate-800">{i.fullName}</h3><p className="text-sm text-slate-500">{i.role}</p></div>
+                </div>
+                <div className="mt-3">
+                  <MobileField label="Chuyên môn">{i.role || '—'}</MobileField>
+                  <MobileField label="Kinh nghiệm">{i.experience || '—'}</MobileField>
+                  <MobileField label="Rating">{i.rating}</MobileField>
+                </div>
+                <MobileActions>
+                  <button onClick={() => openEdit(i)} className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600"><Edit2 className="w-3.5 h-3.5" /> Sửa</button>
+                  <button onClick={() => handleDelete(i.id)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"><Trash2 className="w-3.5 h-3.5" /> Xóa</button>
+                </MobileActions>
               </div>
-              <div className="flex items-center gap-4 text-sm text-slate-500">
-                {i.experience && <span>📅 {i.experience}</span>}
-                <span>⭐ {i.rating}</span>
-              </div>
-              {i.bio && <p className="mt-2 text-sm text-slate-600 line-clamp-2">{i.bio}</p>}
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => openEdit(i)} className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center gap-1"><Edit2 className="w-3 h-3" /> Sửa</button>
-                <button onClick={() => handleDelete(i.id)} className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center gap-1"><Trash2 className="w-3 h-3" /> Xóa</button>
-              </div>
-            </div>
-          ))}
-          {items.length === 0 && <div className="col-span-full bg-white rounded-xl p-8 text-center text-slate-400 border border-slate-200">Chưa có giáo viên</div>}
+            )}
+          />
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full">
+              <thead>
+              <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-100 bg-slate-50">
+                <th className="px-5 py-3">STT</th>
+                <th className="px-5 py-3">Giáo viên</th>
+                <th className="px-5 py-3">Chuyên môn</th>
+                <th className="px-5 py-3">Kinh nghiệm</th>
+                <th className="px-5 py-3">Rating</th>
+                <th className="px-5 py-3">Bio</th>
+                <th className="px-5 py-3 text-right">Thao tác</th>
+              </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+              {items.map((i, index) => (
+                <tr key={i.id} className="text-sm hover:bg-slate-50">
+                  <td className="px-5 py-3 text-slate-500">{(pageIndex - 1) * pageSize + index + 1}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      {i.avatarUrl ? <img src={i.avatarUrl} alt={i.fullName} className="w-10 h-10 rounded-full object-cover" /> : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold">
+                          {i.fullName.charAt(0)}
+                        </div>
+                      )}
+                      <span className="font-medium text-slate-800">{i.fullName}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-slate-600">{i.role || '—'}</td>
+                  <td className="px-5 py-3 text-slate-600">{i.experience || '—'}</td>
+                  <td className="px-5 py-3 text-slate-600">{i.rating}</td>
+                  <td className="px-5 py-3 text-slate-600 max-w-xs truncate">{i.bio || '—'}</td>
+                  <td className="px-5 py-3 text-right">
+                    <button onClick={() => openEdit(i)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(i.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr><td colSpan="7" className="px-5 py-12 text-center text-slate-400">Chưa có giáo viên</td></tr>
+              )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.totalPages}
+            onPageChange={setPageIndex}
+            onPageSizeChange={(size) => { setPageSize(size); setPageIndex(1); }}
+          />
         </div>
       )}
       {showModal && (
@@ -91,7 +170,7 @@ export const InstructorsPage = () => {
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Họ tên *</label>
                 <input value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn</label>
                   <input value={form.role} onChange={e => setForm({...form, role: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Kinh nghiệm</label>
@@ -99,7 +178,7 @@ export const InstructorsPage = () => {
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
                 <textarea value={form.bio} onChange={e => setForm({...form, bio: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Avatar URL</label>
                   <input value={form.avatarUrl} onChange={e => setForm({...form, avatarUrl: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Rating</label>
@@ -116,3 +195,5 @@ export const InstructorsPage = () => {
     </div>
   );
 };
+
+

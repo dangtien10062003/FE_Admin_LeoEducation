@@ -5,6 +5,7 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { Dashboard } from './pages/Dashboard';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { CoursesPage } from './pages/CoursesPage';
+import { ClassesPage } from './pages/ClassesPage';
 import { RegistrationsPage } from './pages/RegistrationsPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { InstructorsPage } from './pages/InstructorsPage';
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="subjects" element={<SubjectsPage />} />
             <Route path="courses" element={<CoursesPage />} />
+            <Route path="classes" element={<ClassesPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="contacts" element={<ContactsPage />} />
             <Route path="instructors" element={<InstructorsPage />} />

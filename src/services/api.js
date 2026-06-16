@@ -44,6 +44,7 @@ export async function apiRequest(path, options = {}) {
 }
 
 const body = (data) => JSON.stringify(data);
+const withPaging = (params = {}) => ({ pageIndex: 1, pageSize: 100, ...params });
 
 export const authService = {
   login: (data) => apiRequest('/auth/login', { method: 'POST', body: body(data) }),
@@ -52,22 +53,31 @@ export const authService = {
 };
 
 export const coursesService = {
-  list: (params = {}) => apiRequest('/courses', { params }),
+  list: (params = {}) => apiRequest('/courses', { params: withPaging(params) }),
   detail: (id) => apiRequest(`/courses/${id}`),
   create: (data) => apiRequest('/courses', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/courses/${id}`, { method: 'PUT', body: body(data) }),
   remove: (id) => apiRequest(`/courses/${id}`, { method: 'DELETE' }),
 };
 
+export const classesService = {
+  list: (params = {}) => apiRequest('/classes', { params: withPaging(params) }),
+  detail: (id) => apiRequest(`/classes/${id}`),
+  availableStudents: (params = {}) => apiRequest('/classes/available-students', { params }),
+  create: (data) => apiRequest('/classes', { method: 'POST', body: body(data) }),
+  update: (id, data) => apiRequest(`/classes/${id}`, { method: 'PUT', body: body(data) }),
+  remove: (id) => apiRequest(`/classes/${id}`, { method: 'DELETE' }),
+};
+
 export const subjectsService = {
-  list: () => apiRequest('/subjects?includeInactive=true'),
+  list: (params = {}) => apiRequest('/subjects', { params: withPaging({ includeInactive: true, ...params }) }),
   create: (data) => apiRequest('/subjects', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/subjects/${id}`, { method: 'PUT', body: body(data) }),
   remove: (id) => apiRequest(`/subjects/${id}`, { method: 'DELETE' }),
 };
 
 export const registrationsService = {
-  list: () => apiRequest('/registrations'),
+  list: (params = {}) => apiRequest('/registrations', { params: withPaging(params) }),
   create: (data) => apiRequest('/registrations', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/registrations/${id}`, { method: 'PUT', body: body(data) }),
   updateStatus: (id, status) => apiRequest(`/registrations/${id}`, { method: 'PATCH', body: body({ status }) }),
@@ -75,7 +85,7 @@ export const registrationsService = {
 };
 
 export const contactsService = {
-  list: () => apiRequest('/contact'),
+  list: (params = {}) => apiRequest('/contact', { params: withPaging(params) }),
   create: (data) => apiRequest('/contact', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/contact/${id}`, { method: 'PUT', body: body(data) }),
   updateStatus: (id, status) => apiRequest(`/contact/${id}`, { method: 'PATCH', body: body({ status }) }),
@@ -83,21 +93,21 @@ export const contactsService = {
 };
 
 export const instructorsService = {
-  list: () => apiRequest('/instructors'),
+  list: (params = {}) => apiRequest('/instructors', { params: withPaging(params) }),
   create: (data) => apiRequest('/instructors', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/instructors/${id}`, { method: 'PUT', body: body(data) }),
   remove: (id) => apiRequest(`/instructors/${id}`, { method: 'DELETE' }),
 };
 
 export const testimonialsService = {
-  list: () => apiRequest('/testimonials'),
+  list: (params = {}) => apiRequest('/testimonials', { params: withPaging({ includeInactive: true, ...params }) }),
   create: (data) => apiRequest('/testimonials', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/testimonials/${id}`, { method: 'PUT', body: body(data) }),
   remove: (id) => apiRequest(`/testimonials/${id}`, { method: 'DELETE' }),
 };
 
 export const blogsService = {
-  list: () => apiRequest('/blogs'),
+  list: (params = {}) => apiRequest('/blogs', { params: withPaging(params) }),
   create: (data) => apiRequest('/blogs', { method: 'POST', body: body(data) }),
   update: (id, data) => apiRequest(`/blogs/${id}`, { method: 'PUT', body: body(data) }),
   remove: (id) => apiRequest(`/blogs/${id}`, { method: 'DELETE' }),
@@ -113,6 +123,13 @@ export const getCourseById = coursesService.detail;
 export const createCourse = coursesService.create;
 export const updateCourse = coursesService.update;
 export const deleteCourse = coursesService.remove;
+
+export const getClasses = classesService.list;
+export const getClassById = classesService.detail;
+export const getClassAvailableStudents = classesService.availableStudents;
+export const createClass = classesService.create;
+export const updateClass = classesService.update;
+export const deleteClass = classesService.remove;
 
 export const getSubjects = subjectsService.list;
 export const createSubject = subjectsService.create;
@@ -149,25 +166,28 @@ export const deleteBlog = blogsService.remove;
 export const getStats = async () => {
   const results = await Promise.allSettled([
     getCourses({ limit: 100 }),
-    getRegistrations(),
-    getContacts(),
-    getInstructors(),
-    getTestimonials(),
-    getBlogs(),
+    getClasses({ pageSize: 100 }),
+    getRegistrations({ pageSize: 100 }),
+    getContacts({ pageSize: 100 }),
+    getInstructors({ pageSize: 100 }),
+    getTestimonials({ pageSize: 100 }),
+    getBlogs({ pageSize: 100 }),
   ]);
 
   const courses = results[0].status === 'fulfilled' ? results[0].value : null;
-  const regs = results[1].status === 'fulfilled' ? results[1].value : null;
-  const contacts = results[2].status === 'fulfilled' ? results[2].value : null;
-  const instructors = results[3].status === 'fulfilled' ? results[3].value : null;
-  const testimonials = results[4].status === 'fulfilled' ? results[4].value : null;
-  const blogs = results[5].status === 'fulfilled' ? results[5].value : null;
+  const classes = results[1].status === 'fulfilled' ? results[1].value : null;
+  const regs = results[2].status === 'fulfilled' ? results[2].value : null;
+  const contacts = results[3].status === 'fulfilled' ? results[3].value : null;
+  const instructors = results[4].status === 'fulfilled' ? results[4].value : null;
+  const testimonials = results[5].status === 'fulfilled' ? results[5].value : null;
+  const blogs = results[6].status === 'fulfilled' ? results[6].value : null;
 
   const registrations = regs?.data || [];
   const contactItems = contacts?.data || [];
 
   return {
     totalCourses: courses?.total || courses?.data?.length || 0,
+    totalClasses: classes?.total || classes?.data?.length || 0,
     totalRegistrations: registrations.length,
     newContacts: contactItems.filter((c) => c.status === 'New').length,
     totalInstructors: instructors?.data?.length || 0,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   createContact,
   deleteContact,
@@ -6,7 +6,9 @@ import {
   updateContact,
   updateContactStatus,
 } from '../services/api';
-import { Loader2, RefreshCw, Trash2, X, User, Mail, Phone } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Pagination } from '../components/Pagination';
+import { MobileActions, MobileCardList, MobileField } from '../components/MobileCardList';
 
 const STATUS_OPTIONS = ['New', 'Processing', 'Resolved'];
 const STATUS_COLORS = {
@@ -18,24 +20,31 @@ const STATUS_COLORS = {
 export const ContactsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [keyword, setKeyword] = useState('');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', message: '', status: 'New' });
 
   const load = async () => {
     setLoading(true);
-    try { const res = await getContacts(); setItems(res.data || []); } catch (e) { console.error(e); }
+    try {
+      const res = await getContacts({ searchTerm: keyword, pageIndex, pageSize });
+      setItems(res.data || []);
+      setMeta({ total: res.total || 0, totalPages: res.totalPages || 1 });
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [keyword, pageIndex, pageSize]);
 
   const changeStatus = async (id, status) => {
     try { await updateContactStatus(id, status); load(); } catch (e) { alert(e.message); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Xóa liên hệ này?')) return;
+    if (!confirm('Xóa liên hệ này')) return;
     try {
       await deleteContact(id);
       load();
@@ -65,54 +74,105 @@ export const ContactsPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Quản lý Liên hệ</h1>
-          <p className="text-slate-500 text-sm">{items.length} yêu cầu • {items.filter(c => c.status === 'New').length} chưa xử lý</p>
+          <p className="text-slate-500 text-sm">{meta.total} yêu cầu</p>
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"><RefreshCw className="w-5 h-5" /></button>
           <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">+ Thêm liên hệ</button>
         </div>
       </div>
-      <div className="space-y-3">
-        {items.map(c => (
-          <div key={c.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><User className="w-5 h-5" /></div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-800">{c.fullName}</span>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status] || 'bg-slate-100'}`}>{c.status}</span>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          value={keyword}
+          onChange={e => { setKeyword(e.target.value); setPageIndex(1); }}
+          placeholder="Tìm theo họ tên, SĐT, email, nội dung, trạng thái..."
+          className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <MobileCardList
+          items={items}
+          emptyMessage="Chưa có yêu cầu liên hệ"
+          renderItem={(c, index) => (
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-slate-400">STT {(pageIndex - 1) * pageSize + index + 1}</div>
+                  <h3 className="mt-1 truncate text-sm font-medium text-slate-800">{c.fullName}</h3>
                 </div>
-                <p className="text-sm text-slate-500 truncate">{c.message || 'Không có nội dung'}</p>
+                <select value={c.status} onChange={e => changeStatus(c.id, e.target.value)}
+                  className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${STATUS_COLORS[c.status] || 'bg-slate-100'}`}>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
-              <span className="text-xs text-slate-400 whitespace-nowrap">{new Date(c.createdAt).toLocaleDateString('vi-VN')}</span>
+              <div className="mt-3">
+                <MobileField label="SĐT">{c.phone}</MobileField>
+                <MobileField label="Email">{c.email}</MobileField>
+                <MobileField label="Nội dung"><span className="line-clamp-2">{c.message || 'Không có nội dung'}</span></MobileField>
+                <MobileField label="Ngày">{new Date(c.createdAt).toLocaleDateString('vi-VN')}</MobileField>
+              </div>
+              <MobileActions>
+                <button onClick={() => openEdit(c)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600">Sửa</button>
+                <button onClick={() => handleDelete(c.id)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"><Trash2 className="w-3.5 h-3.5" /> Xóa</button>
+              </MobileActions>
             </div>
-            {expanded === c.id && (
-              <div className="px-5 pb-4 pt-0 border-t border-slate-100 bg-slate-50">
-                <div className="grid sm:grid-cols-2 gap-3 mt-3 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600"><Phone className="w-4 h-4" />{c.phone}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Mail className="w-4 h-4" />{c.email}</div>
-                </div>
-                {c.message && <p className="mt-2 text-sm text-slate-700 bg-white p-3 rounded-lg border border-slate-200">{c.message}</p>}
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-slate-500">Trạng thái:</span>
-                  {STATUS_OPTIONS.map(s => (
-                    <button key={s} onClick={() => changeStatus(c.id, s)}
-                      className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${c.status === s ? STATUS_COLORS[s] + ' ring-2 ring-offset-1 ring-teal-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      {s}
-                    </button>
-                  ))}
-                  <div className="flex-1" />
-                  <button onClick={() => openEdit(c)} className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200">✏️ Sửa</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200">🗑️ Xóa</button>
-                </div>
-              </div>
+          )}
+        />
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full">
+            <thead>
+            <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-100 bg-slate-50">
+              <th className="px-5 py-3">STT</th>
+              <th className="px-5 py-3">Họ tên</th>
+              <th className="px-5 py-3">SĐT</th>
+              <th className="px-5 py-3">Email</th>
+              <th className="px-5 py-3">Nội dung</th>
+              <th className="px-5 py-3">Trạng thái</th>
+              <th className="px-5 py-3">Ngày</th>
+              <th className="px-5 py-3 text-right">Thao tác</th>
+            </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+            {items.map((c, index) => (
+              <tr key={c.id} className="text-sm hover:bg-slate-50">
+                <td className="px-5 py-3 text-slate-500">{(pageIndex - 1) * pageSize + index + 1}</td>
+                <td className="px-5 py-3 font-medium text-slate-800">{c.fullName}</td>
+                <td className="px-5 py-3 text-slate-600">{c.phone}</td>
+                <td className="px-5 py-3 text-slate-600">{c.email}</td>
+                <td className="px-5 py-3 text-slate-600 max-w-xs truncate">{c.message || 'Không có nội dung'}</td>
+                <td className="px-5 py-3">
+                  <select value={c.status} onChange={e => changeStatus(c.id, e.target.value)}
+                    className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${STATUS_COLORS[c.status] || 'bg-slate-100'}`}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </td>
+                <td className="px-5 py-3 text-slate-500">{new Date(c.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td className="px-5 py-3 text-right">
+                  <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded">Sửa</button>
+                  <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr><td colSpan="8" className="px-5 py-12 text-center text-slate-400">Chưa có yêu cầu liên hệ</td></tr>
             )}
-          </div>
-        ))}
-        {items.length === 0 && <div className="bg-white rounded-xl p-8 text-center text-slate-400 border border-slate-200">Chưa có yêu cầu liên hệ</div>}
+            </tbody>
+          </table>
+        </div>
+        <Pagination
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          total={meta.total}
+          totalPages={meta.totalPages}
+          onPageChange={setPageIndex}
+          onPageSizeChange={(size) => { setPageSize(size); setPageIndex(1); }}
+        />
       </div>
 
       {/* Modal */}
@@ -126,7 +186,7 @@ export const ContactsPage = () => {
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Họ tên *</label>
                 <input value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">SĐT *</label>
                   <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
@@ -149,3 +209,5 @@ export const ContactsPage = () => {
     </div>
   );
 };
+
+
